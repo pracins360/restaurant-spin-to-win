@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎡 Spin to Win – Table Mode</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f8f8; padding: 20px; }
+    h2 { color: teal; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }
+    textarea { width: 100%; height: 100px; }
+    button { padding: 10px 20px; margin: 5px; background: teal; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: darkcyan; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🎡 Spin to Win – Table Mode</h2>
+    <p>Two free spins per table. One waiter unlock (+3) per day. Then no more spins.</p>
+
+    <label>Table ID:</label><br>
+    <input type="text" id="tableId" value="T01"><br><br>
+    <button onclick="startSession()">Start Session</button>
+    <p id="status">Status will appear here.</p>
+
+    <button onclick="doSpin()">🎯 Spin</button>
+    <p id="result"></p>
+
+    <h3>Spin History</h3>
+    <textarea id="history" readonly>No spins yet.</textarea>
+
+    <h3>Waiter Unlock (+3 spins, once)</h3>
+    <input type="password" id="pin" placeholder="Enter Shift PIN"><br>
+    <button onclick="unlock()">Unlock (+3)</button>
+
+    <h3>Bill (for cashier)</h3>
+    <textarea id="bill" readonly>Bill items:\n• (example) 1 Food\n• (example) 1 Drink\n• —</textarea>
+    <p><i>Cashier will see <code>Spin(3)</code> once unlocked.</i></p>
+  </div>
+
+  <script>
+    const SHIFT_PIN = "2468";
+    const MAX_FREE_SPINS = 2;
+    const UNLOCK_BONUS_SPINS = 3;
+
+    const PRIZES = [
+      ["🎟️ Thanks for playing! Try again", 0.45],
+      ["🥤 Free Soft Drink", 0.30],
+      ["🍟 25% off Appetizer", 0.15],
+      ["🍰 Dessert -50%", 0.07],
+      ["🍤 Free Appetizer", 0.03]
+    ];
+
+    let state = {};
+
+    function startSession() {
+      const tid = document.getElementById("tableId").value || "T??";
+      state = {
+        table_id: tid,
+        free: MAX_FREE_SPINS,
+        unlocked: false,
+        extra: 0,
+        bill: [],
+        history: []
+      };
+      updateStatus();
+      updateHistory();
+      updateBill();
+      document.getElementById("result").textContent = "";
+    }
+
+    function drawPrize() {
+      let r = Math.random();
+      let cum = 0;
+      for (let [name, p] of PRIZES) {
+        cum += p;
+        if (r <= cum) return name;
+      }
+      return PRIZES[PRIZES.length - 1][0];
+    }
+
+    function doSpin() {
+      let msg = "";
+      if (state.free > 0) {
+        let prize = drawPrize();
+        state.free -= 1;
+        state.history.push(`Spin → ${prize}`);
+        msg = `Result: ${prize}`;
+      } else if (!state.unlocked) {
+        msg = "Locked after 2 free spins. Ask waiter for +3 spins (one time).";
+      } else if (state.extra > 0) {
+        let prize = drawPrize();
+        state.extra -= 1;
+        state.history.push(`Spin → ${prize}`);
+        msg = `Result: ${prize}`;
+      } else {
+        msg = "Spin limit reached for today. Thanks for playing!";
+      }
+      document.getElementById("result").textContent = msg;
+      updateStatus();
+      updateHistory();
+    }
+
+    function unlock() {
+      const pin = document.getElementById("pin").value;
+      let msg = "";
+      if (state.unlocked) {
+        msg = "Already unlocked today.";
+      } else if (pin !== SHIFT_PIN) {
+        msg = "Invalid PIN. Please ask staff.";
+      } else {
+        state.unlocked = true;
+        state.extra = UNLOCK_BONUS_SPINS;
+        state.bill.push(`${state.table_id}: Spin(3)`);
+        msg = "Unlocked: +3 spins added. Enjoy!";
+      }
+      document.getElementById("result").textContent = msg;
+      updateStatus();
+      updateBill();
+    }
+
+    function updateStatus() {
+      let lock_msg = "";
+      if (state.free > 0) {
+        lock_msg = `Free spins left: ${state.free}.
